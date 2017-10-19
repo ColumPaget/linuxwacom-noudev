@@ -1,3 +1,7 @@
+This is a version of the linux-wacom drive that can build without libudev. If you want to use this feature then pass the '--enable-udev=no' option to ./configure before build. By default it tries to find udev and so will fail if this option isn't passed and libudev isn't available.
+
+--- Original README below ---
+
 This package provides the X.Org X11 driver for Wacom and Wacom-like tablets.
 It obsoletes the linuxwacom driver and supports X server versions 1.7 and
 higher. Server versions lower than 1.7 may be supported by this driver, but
