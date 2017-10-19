@@ -57,8 +57,7 @@ PKG_CHECK_MODULES(XORG, [xorg-server >= 1.7.0] $XPROTOS)
 # Obtain compiler/linker options for the xsetwacom tool
 PKG_CHECK_MODULES(X11, x11 xi xrandr xinerama $XPROTOS)
 
-# Obtain compiler/linker options for libudev used by ISDV4 code
-PKG_CHECK_MODULES(UDEV, libudev)
+
 
 # X Server SDK location is required to install wacom header files
 # This location is also relayed in the xorg-wacom.pc file
@@ -161,6 +160,25 @@ AC_ARG_WITH([systemd-unit-dir],
 SYSTEMD_UNIT_DIR=${unitdir}
 AC_SUBST(SYSTEMD_UNIT_DIR)
 AM_CONDITIONAL(HAVE_SYSTEMD_UNIT_DIR, [test "x$SYSTEMD_UNIT_DIR" != "xno"])
+
+
+
+
+AC_DEFINE(USE_UDEV,[yes],[use udev or not])
+AH_TEMPLATE(HAVE_UDEV,[1],[define this if you have udev])
+AH_TEMPLATE(NO_UDEV,[],[gets set if udev missing])
+
+AC_ARG_ENABLE(udev,
+		AS_HELP_STRING([--enable-udev],[use udev
+		(default=auto)]),
+		[USE_UDEV=$enableval], 
+		[USE_UDEV=auto])
+
+if test "$USE_UDEV" != "no"
+then
+# Obtain compiler/linker options for libudev used by ISDV4 code
+PKG_CHECK_MODULES([UDEV], [libudev], [AC_DEFINE(HAVE_UDEV)], [AC_DEFINE(NO_UDEV)])
+fi
 
 AC_ARG_WITH(udev-rules-dir,                                                   
             AS_HELP_STRING([--with-udev-rules-dir=DIR],

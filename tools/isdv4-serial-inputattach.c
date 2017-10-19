@@ -23,7 +23,6 @@
 #endif
 
 #include <linux/serio.h>
-#include <libudev.h>
 
 #include <getopt.h>
 #include <stdio.h>
@@ -38,6 +37,10 @@
 #include <signal.h>
 
 #include "tools-shared.h"
+
+#ifdef HAVE_UDEV
+#include <libudev.h>
+#endif
 
 extern int verbose;  /* quiet clang's -Wmissing-variable-declarations */
 int verbose = 0;
@@ -80,6 +83,7 @@ static int bind_kernel_driver(int fd)
 	return 0;
 }
 
+#ifdef HAVE_UDEV
 static unsigned int get_baud_rate(int fd)
 {
 	struct stat st;
@@ -116,6 +120,42 @@ static unsigned int get_baud_rate(int fd)
 
 	return baudrate;
 }
+#else
+//Alternative for systems lacking udev
+static unsigned int get_baud_rate(int fd)
+{
+       struct stat st;
+       unsigned int baudrate = 19200;
+       int id, bytes_read;
+       char *sysfs_path=NULL, *buf=NULL;
+       FILE *file;
+
+       if (fstat(fd, &st) == -1) return 0;
+       asprintf(&sysfs_path,"/sys/dev/%d:%d/device/id",major(st.st_rdev),
+ minor(st.st_rdev));
+
+       file = fopen(sysfs_path, "r");
+       if (file)
+       {
+               buf=calloc(256, sizeof(char));
+               bytes_read = fread(buf, 1, 255, file);
+               if (bytes_read > 0)
+               {
+               /* Devices up to WACf007 are 19200, newer devices are 38400. FUJ
+          devices are all 19200 */
+                       if (strncmp(buf, "WACf", 4) == 0)
+                       {
+                               if (strtol(buf+4,NULL,10) > 7) baudrate = 38400;
+                       }
+               }
+               fclose(file);
+       }
+
+       free(sysfs_path);
+       free(buf);
+       return baudrate;
+}
+#endif
 
 static void sighandler(int signum)
 {

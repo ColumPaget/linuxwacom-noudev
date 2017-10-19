@@ -28,9 +28,13 @@
 #include "isdv4.h"
 #include <unistd.h>
 #include <fcntl.h>
-#include <libudev.h>
+
 #include <sys/types.h>
 #include <sys/stat.h>
+
+#ifdef HAVE_UDEV
+#include <libudev.h>
+#endif
 
 #define RESET_RELATIVE(ds) do { (ds).relwheel = 0; } while (0)
 
@@ -975,6 +979,8 @@ static Bool get_keys_vendor_tablet_id(char *name, WacomCommonPtr common)
  * @param buf[out] preallocated buffer to return the result in.
  * @param buf_size: size of preallocated buffer
  */
+
+#ifdef HAVE_UDEV
 static Bool get_sysfs_id(InputInfoPtr pInfo, char *buf, int buf_size)
 {
 	WacomDevicePtr  priv = (WacomDevicePtr)pInfo->private;
@@ -1017,6 +1023,46 @@ out:
 
 	return ret;
 }
+#else
+//Alternative for systems lacking udev
+static Bool get_sysfs_id(InputInfoPtr pInfo, char *buf, int buf_size)
+{
+       WacomDevicePtr  priv = (WacomDevicePtr)pInfo->private;
+       struct stat st;
+       char *sysfs_path = NULL;
+       FILE *file = NULL;
+       Bool ret = FALSE;
+       int bytes_read;
+
+       // Stat the file descriptor to get st_rdev, which holds major/minor
+       //device numbers. Use this to look up device id (identifies model)
+       //   /sys/dev/<major>:<minor>
+
+       if (fstat(pInfo->fd, &st) > -1)
+       {
+       asprintf(&sysfs_path,"/sys/dev/%d:%d/device/id",major(st.st_rdev),
+ minor(st.st_rdev));
+
+       DBG(8, priv, "sysfs path: %s\n", sysfs_path);
+
+       file = fopen(sysfs_path, "r");
+       if (file)
+       {
+               bytes_read = fread(buf, 1, buf_size - 1, file);
+               if (bytes_read > 0)
+               {
+                       buf[bytes_read] = '\0';
+                       ret = TRUE;
+               }
+               fclose(file);
+       }
+       }
+
+       free(sysfs_path);
+
+       return ret;
+}
+#endif
 
 /**
  * Query the device's fd for the key bits and the tablet ID. Returns the ID
